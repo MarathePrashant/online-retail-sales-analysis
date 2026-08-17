@@ -1913,7 +1913,7 @@ print(
 )
 
 
-# 9.4 CUSTOMER INSIGHTS
+####Customer Insights
 
 print(
     "Total Customers:",
@@ -1938,15 +1938,11 @@ print(
         ]
     ].head(10)
 )
-customer_segment_summary = (
-    customer_segment_summary
-    .sort_values(
-        "Revenue",
-        ascending=False
-    )
+final_segment_analysis = (
+    final_segment_analysis.sort_values("Revenue",ascending=False)
 )
 
-print(customer_segment_summary)
+print(final_segment_analysis)
 
 # ============================================
 # 9.6 PRODUCT INSIGHTS
@@ -2180,4 +2176,998 @@ final_findings = pd.DataFrame({
 })
 
 print(final_findings)
+
+# Select features for customer segmentation
+
+segmentation_df = customer_df[
+    [
+        "Recency",
+        "Frequency",
+        "Monetary",
+        "Avg_Order_Value",
+        "Total_Quantity"
+    ]
+].copy()
+
+segmentation_df.head()
+print("Shape:", segmentation_df.shape)
+
+print("\nMissing Values:")
+print(segmentation_df.isnull().sum())
+
+print("\nData Types:")
+print(segmentation_df.dtypes)
+
+import matplotlib.pyplot as plt
+
+segmentation_df.hist(
+    figsize=(12, 8),
+    bins=30
+)
+
+plt.suptitle("Customer Segmentation Feature Distributions")
+plt.tight_layout()
+plt.show()
+
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+
+segmentation_scaled = scaler.fit_transform(segmentation_df)
+
+segmentation_scaled = pd.DataFrame(
+    segmentation_scaled,
+    columns=segmentation_df.columns,
+    index=segmentation_df.index
+)
+
+segmentation_scaled.head()
+
+from sklearn.cluster import KMeans
+
+inertia = []
+
+for k in range(2, 11):
+    kmeans = KMeans(
+        n_clusters=k,
+        random_state=42,
+        n_init=10
+    )
+    
+    kmeans.fit(segmentation_scaled)
+    inertia.append(kmeans.inertia_)
+
+plt.figure(figsize=(8, 5))
+
+plt.plot(
+    range(2, 11),
+    inertia,
+    marker="o"
+)
+
+plt.xlabel("Number of Clusters")
+plt.ylabel("Inertia")
+plt.title("Elbow Method for Optimal Number of Clusters")
+plt.xticks(range(2, 11))
+plt.grid(True)
+
+plt.show()
+
+optimal_k = 4
+
+kmeans = KMeans(
+    n_clusters=optimal_k,
+    random_state=42,
+    n_init=10
+)
+
+segmentation_df["Cluster"] = kmeans.fit_predict(
+    segmentation_scaled
+)
+
+segmentation_df.head()
+
+cluster_summary = segmentation_df.groupby("Cluster").agg({
+    "Recency": "mean",
+    "Frequency": "mean",
+    "Monetary": "mean",
+    "Avg_Order_Value": "mean",
+    "Total_Quantity": "mean"
+}).round(2)
+
+cluster_summary
+
+plt.figure(figsize=(9, 6))
+
+for cluster in sorted(segmentation_df["Cluster"].unique()):
+    cluster_data = segmentation_df[
+        segmentation_df["Cluster"] == cluster
+    ]
+    
+    plt.scatter(
+        cluster_data["Frequency"],
+        cluster_data["Monetary"],
+        label=f"Cluster {cluster}",
+        alpha=0.6
+    )
+
+plt.xlabel("Purchase Frequency")
+plt.ylabel("Monetary Value")
+plt.title("Customer Segmentation: Frequency vs Monetary Value")
+plt.legend()
+plt.grid(True)
+
+plt.show()
+
+cluster_size = (
+    segmentation_df["Cluster"]
+    .value_counts()
+    .sort_index()
+)
+
+print(cluster_size)
+
+cluster_percentage = (
+    segmentation_df["Cluster"]
+    .value_counts(normalize=True)
+    .sort_index()
+    .mul(100)
+    .round(2)
+)
+
+print(cluster_percentage)
+cluster_counts = (
+    segmentation_df["Cluster"]
+    .value_counts()
+    .sort_index()
+)
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    cluster_counts.index.astype(str),
+    cluster_counts.values
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Number of Customers")
+plt.title("Customer Distribution by Cluster")
+
+plt.show()
+
+plt.figure(figsize=(8, 5))
+
+cluster_summary["Monetary"].plot(
+    kind="bar"
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Average Monetary Value")
+plt.title("Average Customer Spending by Cluster")
+plt.xticks(rotation=0)
+
+plt.show()
+
+plt.figure(figsize=(8, 5))
+
+cluster_summary["Frequency"].plot(
+    kind="bar"
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Average Purchase Frequency")
+plt.title("Average Purchase Frequency by Cluster")
+plt.xticks(rotation=0)
+
+plt.show()
+
+plt.figure(figsize=(8, 5))
+
+cluster_summary["Recency"].plot(
+    kind="bar"
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Average Recency")
+plt.title("Average Recency by Customer Cluster")
+plt.xticks(rotation=0)
+
+plt.show()
+
+rfm_cluster_summary = segmentation_df.groupby("Cluster").agg(
+    Customers=("Cluster", "count"),
+    Avg_Recency=("Recency", "mean"),
+    Avg_Frequency=("Frequency", "mean"),
+    Avg_Monetary=("Monetary", "mean"),
+    Avg_Order_Value=("Avg_Order_Value", "mean"),
+    Avg_Quantity=("Total_Quantity", "mean")
+).round(2)
+
+rfm_cluster_summary
+cluster_revenue = (
+    segmentation_df.groupby("Cluster")["Monetary"]
+    .sum()
+    .sort_values(ascending=False)
+)
+
+cluster_revenue
+
+cluster_revenue_percentage = (
+    cluster_revenue /
+    cluster_revenue.sum() * 100
+).round(2)
+
+cluster_revenue_percentage
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    cluster_revenue_percentage.index.astype(str),
+    cluster_revenue_percentage.values
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Revenue Contribution (%)")
+plt.title("Revenue Contribution by Customer Cluster")
+
+plt.show()
+
+final_segment_analysis = segmentation_df.groupby("Cluster").agg(
+    Customers=("Cluster", "count"),
+    Avg_Recency=("Recency", "mean"),
+    Avg_Frequency=("Frequency", "mean"),
+    Avg_Monetary=("Monetary", "mean"),
+    Avg_Order_Value=("Avg_Order_Value", "mean"),
+    Avg_Quantity=("Total_Quantity", "mean")
+).round(2)
+
+final_segment_analysis["Customer_%"] = (
+    final_segment_analysis["Customers"] /
+    final_segment_analysis["Customers"].sum() * 100
+).round(2)
+
+final_segment_analysis["Revenue_%"] = (
+    segmentation_df.groupby("Cluster")["Monetary"].sum() /
+    segmentation_df["Monetary"].sum() * 100
+).round(2)
+
+final_segment_analysis
+
+segmentation_df.to_csv(
+    "customer_segmentation.csv",
+    index=True
+)
+
+print("Customer segmentation file saved successfully.")
+
+final_segment_analysis
+
+# Overall Business KPIs
+
+total_revenue = df_clean["Revenue"].sum()
+total_quantity = df_clean["Quantity"].sum()
+total_orders = df_clean["Invoice"].nunique()
+total_customers = df_clean["Customer ID"].nunique()
+total_products = df_clean["StockCode"].nunique()
+
+average_order_value = total_revenue / total_orders
+average_quantity_per_order = total_quantity / total_orders
+average_revenue_per_customer = total_revenue / total_customers
+
+print("===== Overall Business KPIs =====")
+
+print(f"Total Revenue: £{total_revenue:,.2f}")
+print(f"Total Quantity Sold: {total_quantity:,}")
+print(f"Total Orders: {total_orders:,}")
+print(f"Total Customers: {total_customers:,}")
+print(f"Total Products: {total_products:,}")
+print(f"Average Order Value: £{average_order_value:,.2f}")
+print(f"Average Quantity per Order: {average_quantity_per_order:,.2f}")
+print(f"Average Revenue per Customer: £{average_revenue_per_customer:,.2f}")
+
+df_clean["InvoiceDate"] = pd.to_datetime(
+    df_clean["InvoiceDate"]
+)
+
+df_clean["YearMonth"] = (
+    df_clean["InvoiceDate"]
+    .dt.to_period("M")
+)
+
+monthly_revenue = (
+    df_clean.groupby("YearMonth")["Revenue"]
+    .sum()
+    .sort_index()
+)
+
+monthly_revenue
+
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    monthly_revenue.index.astype(str),
+    monthly_revenue.values,
+    marker="o"
+)
+
+plt.xlabel("Month")
+plt.ylabel("Revenue (£)")
+plt.title("Monthly Revenue Trend")
+plt.xticks(rotation=45)
+plt.grid(True)
+
+plt.show()
+
+monthly_orders = (
+    df_clean.groupby("YearMonth")["Invoice"]
+    .nunique()
+    .sort_index()
+)
+
+monthly_orders
+
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    monthly_orders.index.astype(str),
+    monthly_orders.values,
+    marker="o"
+)
+
+plt.xlabel("Month")
+plt.ylabel("Number of Orders")
+plt.title("Monthly Order Trend")
+plt.xticks(rotation=45)
+plt.grid(True)
+
+plt.show()
+
+monthly_aov = (
+    monthly_revenue / monthly_orders
+).round(2)
+
+monthly_aov
+
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    monthly_aov.index.astype(str),
+    monthly_aov.values,
+    marker="o"
+)
+
+plt.xlabel("Month")
+plt.ylabel("Average Order Value (£)")
+plt.title("Monthly Average Order Value")
+plt.xticks(rotation=45)
+plt.grid(True)
+
+plt.show()
+
+top_products_revenue = (
+    df_clean.groupby("StockCode")["Revenue"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+top_products_revenue
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_products_revenue.index.astype(str),
+    top_products_revenue.values
+)
+
+plt.xlabel("Revenue (£)")
+plt.ylabel("Stock Code")
+plt.title("Top 10 Products by Revenue")
+plt.gca().invert_yaxis()
+
+plt.show()
+
+top_products_quantity = (
+    df_clean.groupby("StockCode")["Quantity"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+top_products_quantity
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_products_quantity.index.astype(str),
+    top_products_quantity.values
+)
+
+plt.xlabel("Quantity Sold")
+plt.ylabel("Stock Code")
+plt.title("Top 10 Products by Quantity Sold")
+plt.gca().invert_yaxis()
+
+plt.show()
+
+country_revenue = (
+    df_clean.groupby("Country")["Revenue"]
+    .sum()
+    .sort_values(ascending=False)
+)
+
+country_revenue.head(10)
+
+top_countries = country_revenue.head(10)
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_countries.index,
+    top_countries.values
+)
+
+plt.xlabel("Revenue (£)")
+plt.ylabel("Country")
+plt.title("Top 10 Countries by Revenue")
+plt.gca().invert_yaxis()
+
+plt.show()
+
+top_customers = (
+    df_clean.groupby("Customer ID")["Revenue"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+top_customers
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_customers.index.astype(str),
+    top_customers.values
+)
+
+plt.xlabel("Revenue (£)")
+plt.ylabel("Customer ID")
+plt.title("Top 10 Customers by Revenue")
+plt.gca().invert_yaxis()
+
+plt.show()
+
+customer_revenue = (
+    df_clean.groupby("Customer ID")["Revenue"]
+    .sum()
+    .sort_values(ascending=False)
+)
+
+top_10_customer_revenue = customer_revenue.head(10).sum()
+
+top_10_customer_percentage = (
+    top_10_customer_revenue /
+    total_revenue
+) * 100
+
+print(
+    f"Top 10 customers contribute "
+    f"{top_10_customer_percentage:.2f}% of total revenue."
+)
+
+customer_revenue_df = (
+    customer_revenue
+    .reset_index()
+)
+
+customer_revenue_df["Cumulative_Revenue"] = (
+    customer_revenue_df["Revenue"].cumsum()
+)
+
+customer_revenue_df["Cumulative_Revenue_%"] = (
+    customer_revenue_df["Cumulative_Revenue"] /
+    total_revenue * 100
+)
+
+customer_revenue_df.head()
+
+customers_for_80_percent = (
+    customer_revenue_df["Cumulative_Revenue_%"] <= 80
+).sum()
+
+print(
+    f"{customers_for_80_percent:,} customers "
+    f"generate approximately 80% of revenue.")
+
+product_performance["Revenue_Per_Unit"] = (
+    product_performance["Total_Revenue"] /
+    product_performance["Total_Quantity"]
+).round(2)
+
+product_performance.head()
+
+high_demand_products = (
+    product_performance
+    .sort_values("Total_Quantity", ascending=False)
+    .head(10)
+)
+
+high_demand_products
+
+high_revenue_products = (
+    product_performance
+    .sort_values("Total_Revenue", ascending=False)
+    .head(10)
+)
+
+high_revenue_products
+
+print("Top Products by Quantity:")
+print(high_demand_products.index.tolist())
+
+print("\nTop Products by Revenue:")
+print(high_revenue_products.index.tolist())
+
+plt.figure(figsize=(10, 6))
+
+plt.scatter(
+    product_performance["Total_Quantity"],
+    product_performance["Total_Revenue"],
+    alpha=0.5
+)
+
+plt.xlabel("Total Quantity Sold")
+plt.ylabel("Total Revenue (£)")
+plt.title("Product Demand vs Revenue")
+
+plt.grid(True)
+plt.show()
+
+quantity_threshold = product_performance["Total_Quantity"].median()
+revenue_threshold = product_performance["Total_Revenue"].median()
+
+print("Quantity Threshold:", quantity_threshold)
+print("Revenue Threshold:", revenue_threshold)
+
+product_performance["Performance_Category"] = "Other"
+
+product_performance.loc[
+    (product_performance["Total_Quantity"] >= quantity_threshold) &
+    (product_performance["Total_Revenue"] >= revenue_threshold),
+    "Performance_Category"
+] = "High Demand - High Revenue"
+
+product_performance.loc[
+    (product_performance["Total_Quantity"] >= quantity_threshold) &
+    (product_performance["Total_Revenue"] < revenue_threshold),
+    "Performance_Category"
+] = "High Demand - Low Revenue"
+
+product_performance.loc[
+    (product_performance["Total_Quantity"] < quantity_threshold) &
+    (product_performance["Total_Revenue"] >= revenue_threshold),
+    "Performance_Category"
+] = "Low Demand - High Revenue"
+
+product_performance.loc[
+    (product_performance["Total_Quantity"] < quantity_threshold) &
+    (product_performance["Total_Revenue"] < revenue_threshold),
+    "Performance_Category"
+] = "Low Demand - Low Revenue"
+
+product_performance["Performance_Category"].value_counts()
+
+performance_counts = (
+    product_performance["Performance_Category"]
+    .value_counts()
+)
+
+plt.figure(figsize=(10, 5))
+
+plt.bar(
+    performance_counts.index,
+    performance_counts.values
+)
+
+plt.xlabel("Product Performance Category")
+plt.ylabel("Number of Products")
+plt.title("Product Performance Distribution")
+plt.xticks(rotation=25)
+plt.show()
+
+high_demand_low_revenue = product_performance[
+    product_performance["Performance_Category"] ==
+    "High Demand - Low Revenue"
+].sort_values(
+    "Total_Quantity",
+    ascending=False
+)
+
+high_demand_low_revenue.head(10)
+
+low_demand_high_revenue = product_performance[
+    product_performance["Performance_Category"] ==
+    "Low Demand - High Revenue"
+].sort_values(
+    "Total_Revenue",
+    ascending=False
+)
+
+low_demand_high_revenue.head(10)
+
+product_performance["Revenue_Contribution_%"] = (
+    product_performance["Total_Revenue"] /
+    total_revenue * 100
+).round(2)
+
+product_performance.sort_values(
+    "Revenue_Contribution_%",
+    ascending=False
+).head(10)
+
+product_pareto = (
+    product_performance
+    .sort_values(
+        "Total_Revenue",
+        ascending=False
+    )
+    .copy()
+)
+
+product_pareto["Cumulative_Revenue"] = (
+    product_pareto["Total_Revenue"].cumsum()
+)
+
+product_pareto["Cumulative_Revenue_%"] = (
+    product_pareto["Cumulative_Revenue"] /
+    total_revenue * 100
+)
+
+product_pareto.head()
+
+products_for_80_percent = (
+    product_pareto["Cumulative_Revenue_%"] <= 80
+).sum()
+
+total_product_count = product_performance.shape[0]
+
+print(
+    f"{products_for_80_percent:,} out of "
+    f"{total_product_count:,} products generate "
+    f"approximately 80% of total revenue."
+)
+
+business_kpis = {
+    "Total Revenue": total_revenue,
+    "Total Quantity Sold": total_quantity,
+    "Total Orders": total_orders,
+    "Total Customers": total_customers,
+    "Total Products": total_products,
+    "Average Order Value": average_order_value,
+    "Average Quantity per Order": average_quantity_per_order,
+    "Average Revenue per Customer": average_revenue_per_customer
+}
+
+business_kpis
+for kpi, value in business_kpis.items():
+    if "Revenue" in kpi or "Value" in kpi:
+        print(f"{kpi}: £{value:,.2f}")
+    else:
+        print(f"{kpi}: {value:,.2f}")
+
+kpi_summary = pd.DataFrame({
+    "Metric": [
+        "Total Revenue",
+        "Total Orders",
+        "Total Customers",
+        "Total Products",
+        "Average Order Value",
+        "Total Quantity Sold"
+    ],
+    "Value": [
+        total_revenue,
+        total_orders,
+        total_customers,
+        total_products,
+        average_order_value,
+        total_quantity
+    ]
+})
+
+kpi_summary
+
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    monthly_revenue.index.astype(str),
+    monthly_revenue.values,
+    marker="o"
+)
+
+plt.xlabel("Month")
+plt.ylabel("Revenue (£)")
+plt.title("Monthly Revenue Trend")
+
+plt.xticks(rotation=45)
+plt.grid(True)
+
+plt.show()
+
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    monthly_orders.index.astype(str),
+    monthly_orders.values,
+    marker="o"
+)
+
+plt.xlabel("Month")
+plt.ylabel("Orders")
+plt.title("Monthly Order Trend")
+
+plt.xticks(rotation=45)
+plt.grid(True)
+
+plt.show()
+
+top_10_products = (
+    product_performance
+    .sort_values("Total_Revenue", ascending=False)
+    .head(10)
+)
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_10_products.index.astype(str),
+    top_10_products["Total_Revenue"]
+)
+
+plt.xlabel("Revenue (£)")
+plt.ylabel("Stock Code")
+plt.title("Top 10 Products by Revenue")
+
+plt.gca().invert_yaxis()
+
+plt.show()
+
+top_10_countries = (
+    df_clean.groupby("Country")["Revenue"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_10_countries.index,
+    top_10_countries.values
+)
+
+plt.xlabel("Revenue (£)")
+plt.ylabel("Country")
+plt.title("Top 10 Countries by Revenue")
+
+plt.gca().invert_yaxis()
+
+plt.show()
+
+segment_counts = (
+    segmentation_df["Cluster"]
+    .value_counts()
+    .sort_index()
+)
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    segment_counts.index.astype(str),
+    segment_counts.values
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Number of Customers")
+plt.title("Customer Distribution by Segment")
+
+plt.show()
+
+segment_revenue = (
+    segmentation_df.groupby("Cluster")["Monetary"]
+    .sum()
+    .sort_index()
+)
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    segment_revenue.index.astype(str),
+    segment_revenue.values
+)
+
+plt.xlabel("Customer Cluster")
+plt.ylabel("Revenue (£)")
+plt.title("Revenue Contribution by Customer Segment")
+
+plt.show()
+
+plt.figure(figsize=(10, 6))
+
+plt.scatter(
+    product_performance["Total_Quantity"],
+    product_performance["Total_Revenue"],
+    alpha=0.5
+)
+
+plt.xlabel("Quantity Sold")
+plt.ylabel("Revenue (£)")
+plt.title("Product Demand vs Revenue")
+
+plt.grid(True)
+
+plt.show()
+
+plt.figure(figsize=(9, 5))
+
+plt.hist(
+    df_clean["Revenue"],
+    bins=50
+)
+
+plt.xlabel("Revenue per Transaction (£)")
+plt.ylabel("Frequency")
+plt.title("Distribution of Transaction Revenue")
+
+plt.show()
+
+plt.figure(figsize=(9, 5))
+
+plt.hist(
+    segmentation_df["Monetary"],
+    bins=40
+)
+
+plt.xlabel("Customer Monetary Value (£)")
+plt.ylabel("Number of Customers")
+plt.title("Distribution of Customer Spending")
+
+plt.show()
+
+correlation_columns = [
+    "Quantity",
+    "UnitPrice",
+    "Revenue"
+]
+
+correlation_matrix = (
+    df_clean[correlation_columns]
+    .corr()
+)
+
+correlation_matrix
+
+plt.figure(figsize=(7, 5))
+
+plt.imshow(
+    correlation_matrix,
+    interpolation="nearest"
+)
+
+plt.colorbar()
+
+plt.xticks(
+    range(len(correlation_matrix.columns)),
+    correlation_matrix.columns
+)
+
+plt.yticks(
+    range(len(correlation_matrix.columns)),
+    correlation_matrix.columns
+)
+
+plt.title("Correlation Matrix")
+
+plt.show()
+
+dashboard_summary = {
+    "Total Revenue": total_revenue,
+    "Total Orders": total_orders,
+    "Total Customers": total_customers,
+    "Total Products": total_products,
+    "Total Quantity": total_quantity,
+    "Average Order Value": average_order_value,
+    "Average Quantity per Order": average_quantity_per_order,
+    "Average Revenue per Customer": average_revenue_per_customer
+}
+
+dashboard_summary
+
+dashboard_kpis = pd.DataFrame(
+    list(dashboard_summary.items()),
+    columns=["KPI", "Value"]
+)
+
+dashboard_kpis.to_csv(
+    "dashboard_kpis.csv",
+    index=False
+)
+
+product_performance.to_csv(
+    "product_performance.csv",
+    index=True
+)
+
+final_segment_analysis.to_csv(
+    "customer_segments.csv",
+    index=True
+)
+
+monthly_revenue.to_csv(
+    "monthly_revenue.csv"
+)
+
+print("Dashboard datasets exported successfully.")
+
+final_kpis = pd.DataFrame({
+    "KPI": [
+        "Total Revenue",
+        "Total Orders",
+        "Total Customers",
+        "Total Products",
+        "Total Quantity Sold",
+        "Average Order Value",
+        "Average Quantity per Order",
+        "Average Revenue per Customer"
+    ],
+    "Value": [
+        total_revenue,
+        total_orders,
+        total_customers,
+        total_products,
+        total_quantity,
+        average_order_value,
+        average_quantity_per_order,
+        average_revenue_per_customer
+    ]
+})
+
+final_kpis
+
+best_revenue_month = monthly_revenue.idxmax()
+best_revenue_value = monthly_revenue.max()
+
+print(f"Best Revenue Month: {best_revenue_month}")
+print(f"Revenue: £{best_revenue_value:,.2f}")
+
+best_country = country_revenue.idxmax()
+best_country_revenue = country_revenue.max()
+
+print(f"Top Revenue Country: {best_country}")
+print(f"Revenue: £{best_country_revenue:,.2f}")
+
+best_product = product_performance["Total_Revenue"].idxmax()
+best_product_revenue = product_performance["Total_Revenue"].max()
+
+print(f"Top Revenue Product: {best_product}")
+print(f"Revenue: £{best_product_revenue:,.2f}")
+
+best_customer = customer_revenue.idxmax()
+best_customer_revenue = customer_revenue.max()
+
+print(f"Top Customer: {best_customer}")
+print(f"Revenue: £{best_customer_revenue:,.2f}")
+
+print(
+    f"Top 10 customers contribute "
+    f"{top_10_customer_percentage:.2f}% "
+    f"of total revenue."
+)
+print(
+    f"{products_for_80_percent:,} products generate "
+    f"approximately 80% of total revenue."
+)
+
+final_segment_analysis
+
+
 
