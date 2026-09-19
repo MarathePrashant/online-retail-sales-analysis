@@ -4,27 +4,27 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 df=pd.read_csv(r"C:\Users\prash\OneDrive\Documents\PERSONAL LIBRARY\Programming\GitHub\online_retail\online_retail.csv")
-# print(df.head())
-# print(df.tail())
-# print(df.columns)
-# print(df["Invoice"].value_counts().unique())
-# print(df["Invoice"].isnull().value_counts())
-# print(df.dtypes)
-# print(df.info())
-# print("Description")
-# print(df.describe(include='all'))
-# print("Null Values")
-# print(df.isnull().sum())
-# print("Duplicate Value")
-# print(df.duplicated().sum())
+print(df.head())
+print(df.tail())
+print(df.columns)
+print(df["Invoice"].value_counts().unique())
+print(df["Invoice"].isnull().value_counts())
+print(df.dtypes)
+print(df.info())
+print("Description")
+print(df.describe(include='all'))
+print("Null Values")
+print(df.isnull().sum())
+print("Duplicate Value")
+print(df.duplicated().sum())
 
-# duplicates = df[df.duplicated(keep=False)]
-# print("Duplicated Values:",len(duplicates))
-# print("Duplicated Values")
-# print(duplicates.head(20))
+duplicates = df[df.duplicated(keep=False)]
+print("Duplicated Values:",len(duplicates))
+print("Duplicated Values")
+print(duplicates.head(20))
 
-###Identical Duplicate Rows
-# print("Exact Duplicate Rows:",df.duplicated().sum())
+##Identical Duplicate Rows
+print("Exact Duplicate Rows:",df.duplicated().sum())
 
 duplicate_counts = (
     df.groupby(
